@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import 'main.dart';
+import 'inventory.dart';
 
 class Recipe {
   final String name;
@@ -12,9 +16,9 @@ class Recipe {
 
 class RecettesScreen extends StatelessWidget {
   final List<Recipe> recipes = [
-    Recipe('Hache', {'bois': 2, 'Ironrod': 2}, 'Récolte le bois 3 par 3',
-        'Outil', 'Un outil utile'),
-    Recipe('Pioche', {'bois': 2, 'Ironrod': 3}, 'Récolte les minerais 5 par 5',
+    Recipe('Hache', {'Bois': 2}, 'Récolte le bois 3 par 3', 'Outil',
+        'Un outil utile'),
+    Recipe('Pioche', {'Bois': 2, 'Ironrod': 3}, 'Récolte les minerais 5 par 5',
         'Outil', 'Un outil utile'),
     Recipe('Lingot de fer', {'Ironrod': 1}, 'Débloque d\'autres recettes',
         'Matériau', 'Un lingot de fer pur'),
@@ -54,27 +58,37 @@ class RecettesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Recettes'),
-      ),
-      body: ListView.builder(
-        itemCount: recipes.length,
-        itemBuilder: (BuildContext context, int index) {
-          return RecipeWidget(recipe: recipes[index]);
-        },
-      ),
+    return Consumer<ResourceCounter>(
+      builder: (context, resourceCounter, child) {
+        return Scaffold(
+          appBar: AppBar(
+            title: Text('Recettes'),
+          ),
+          body: ListView.builder(
+            itemCount: recipes.length,
+            itemBuilder: (BuildContext context, int index) {
+              return RecipeWidget(
+                  recipe: recipes[index], resourceCounter: resourceCounter);
+            },
+          ),
+        );
+      },
     );
   }
 }
 
 class RecipeWidget extends StatelessWidget {
   final Recipe recipe;
+  final ResourceCounter resourceCounter;
 
-  const RecipeWidget({Key? key, required this.recipe}) : super(key: key);
+  const RecipeWidget(
+      {Key? key, required this.recipe, required this.resourceCounter})
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    bool enoughResources = _checkIfEnoughResources(recipe, resourceCounter);
+
     return Card(
       margin: EdgeInsets.all(8),
       child: Padding(
@@ -93,12 +107,23 @@ class RecipeWidget extends StatelessWidget {
             SizedBox(height: 4),
             Text('Détails: ${recipe.details}'),
             SizedBox(height: 4),
-            Text('Coût: ${formatCost(recipe.cost)}'),
+            Text(' ${formatCost(recipe.cost)}'),
             SizedBox(height: 8),
-            ElevatedButton(
-              onPressed: () {},
-              child: Text('Produire'),
-            ),
+            enoughResources
+                ? ElevatedButton(
+                    onPressed: () {
+                      _produceRecipe(context);
+                    },
+                    child: Text('Produire'),
+                  )
+                : ElevatedButton(
+                    onPressed: null,
+                    child: Text('Produire'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.grey,
+                      foregroundColor: Colors.black,
+                    ),
+                  ),
           ],
         ),
       ),
@@ -111,5 +136,27 @@ class RecipeWidget extends StatelessWidget {
       formattedCost += '$key($value) ';
     });
     return formattedCost;
+  }
+
+//compare les besoins en ressources de la recette avec les ressources existantes
+  bool _checkIfEnoughResources(Recipe recipe, ResourceCounter resourceCounter) {
+    for (var entry in recipe.cost.entries) {
+      final resourceName = entry.key;
+
+      if (resourceCounter.resourceCounters.containsKey(resourceName)) {
+        if (resourceCounter.resourceCounters[resourceName]! < entry.value) {
+          return false;
+        }
+      } else {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  // ajouter la création de la recette dans la page inventaire
+  void _produceRecipe(BuildContext context) {
+    Inventory inventory = Provider.of<Inventory>(context, listen: false);
+    inventory.addItem(InventoryItem(name: recipe.name, quantity: 1));
   }
 }

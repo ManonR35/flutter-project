@@ -1,8 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'recipes.dart';
+import 'inventory.dart';
 
 void main() {
-  runApp(MyApp());
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider<ResourceCounter>(
+          create: (context) => ResourceCounter(),
+        ),
+        ChangeNotifierProvider<Inventory>(
+          create: (context) => Inventory(),
+        ),
+      ],
+      child: MyApp(),
+    ),
+  );
 }
 
 class Resource {
@@ -11,6 +25,22 @@ class Resource {
   final String description;
 
   Resource(this.name, this.color, this.description);
+}
+
+class ResourceCounter with ChangeNotifier {
+  Map<String, int> resourceCounters = {
+    'Bois': 0,
+    'Minerai de fer': 0,
+    'Minerai de cuivre': 0,
+    'Charbon': 0,
+  };
+
+  void incrementCounter(String resourceName) {
+    if (resourceCounters.containsKey(resourceName)) {
+      resourceCounters[resourceName] = resourceCounters[resourceName]! + 1;
+      notifyListeners();
+    }
+  }
 }
 
 class MyApp extends StatelessWidget {
@@ -34,6 +64,7 @@ class MyApp extends StatelessWidget {
       routes: {
         '/': (context) => HomeScreen(resources: resources),
         '/recettes': (context) => RecettesScreen(),
+        '/inventaire': (context) => InventoryScreen(),
       },
     );
   }
@@ -49,14 +80,6 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int counter = 1;
-
-  void incrementCounter() {
-    setState(() {
-      counter++;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -68,6 +91,12 @@ class _HomeScreenState extends State<HomeScreen> {
               Navigator.pushNamed(context, '/recettes');
             },
             icon: Icon(Icons.article_outlined),
+          ),
+          IconButton(
+            onPressed: () {
+              Navigator.pushNamed(context, '/inventaire');
+            },
+            icon: Icon(Icons.inventory_2_outlined),
           ),
         ],
       ),
@@ -94,7 +123,13 @@ class ResourceWidget extends StatefulWidget {
 }
 
 class _ResourceWidgetState extends State<ResourceWidget> {
-  int counter = 0;
+  late ResourceCounter resourceCounter;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    resourceCounter = Provider.of<ResourceCounter>(context);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -121,15 +156,13 @@ class _ResourceWidgetState extends State<ResourceWidget> {
             ),
             SizedBox(height: 8),
             Text(
-              'Quantité récoltée : $counter',
+              'Quantité récoltée : ${resourceCounter.resourceCounters[widget.resource.name]}',
               style: TextStyle(color: Colors.white),
             ),
             SizedBox(height: 8),
             ElevatedButton(
               onPressed: () {
-                setState(() {
-                  counter++;
-                });
+                resourceCounter.incrementCounter(widget.resource.name);
               },
               child: Text('Miner'),
             ),
